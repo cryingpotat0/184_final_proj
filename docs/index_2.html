@@ -1,0 +1,364 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <style>
+        body {
+            padding: 100px;
+            width: 1000px;
+            margin: auto;
+            text-align: left;
+            font-weight: 300;
+            font-family: 'Open Sans', sans-serif;
+            color: #121212;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Source Sans Pro', sans-serif;
+        }
+
+        tr {
+            align: middle;
+        }
+        .p-tb-md {
+            margin: 30px 0 30px 0;
+
+        }
+    </style>
+    <title>CS 184 Mesh Editor</title>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2019</h1>
+<h1 align="middle">Project 3</h1>
+<h2 align="middle">Raghav Anand</h2>
+
+<br><br>
+
+<div>
+
+    <h2 align="middle">Overview</h2>
+    Implementing various techiniques for rendering meshes and curves was quite interesting even if a lot of the algorithms we wrote mostly involved bookkeeping.
+    It was interesting to see the various techniques for averaging depending on what we were doing i.e. shading vs. mesh upsampling vs. curve rendering.
+
+</div>
+<h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+<h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
+
+
+<ul>
+    <li>
+        de Casteljau's algorithm gives a way of evaluating a bezier curve point by point. The current point under evaluation is parametrized by t (in [0, 1]),
+        which represents how far along the bezier curve we are evaluating a point.
+        To find the point on the bezier curve given a set of control points and t, we pick n-1 new points (where n is the number of points at the current step)
+        such that each point is linearly interpolated by a value of t along two consecutive points on the line. We repeat this until there is only one
+        point remaining, and that point is on the bezier curve.
+    </li>
+    <li>
+        My algorithm does exactly this where I look at the vector of points from the previous level and keep subdividing in an iterative fashion given
+        the current value of t.
+    </li>
+</ul>
+<div align="middle">
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td>
+                <img src="images/1_points.png" align="middle" width="250px"/>
+                <figcaption align="middle">6 control points</figcaption>
+            </td>
+            <td>
+                <img src="images/1_1.png" align="middle" width="250px"/>
+                <figcaption align="middle">5 points</figcaption>
+            </td>
+            <td>
+                <img src="images/1_2.png" align="middle" width="250px"/>
+                <figcaption align="middle">4 points</figcaption>
+            </td>
+        </tr>
+        <br><br>
+        <tr>
+            <td>
+                <img src="images/1_3.png" align="middle" width="250px"/>
+                <figcaption align="middle">3 points</figcaption>
+            </td>
+            <td>
+                <img src="images/1_4.png" align="middle" width="250px"/>
+                <figcaption align="middle">2 points</figcaption>
+            </td>
+            <td>
+                <img src="images/1_5.png" align="middle" width="250px"/>
+                <figcaption align="middle">1 points, red is point on Bezier curve</figcaption>
+            </td>
+        </tr>
+        <br><br>
+        <tr align="middle">
+            <td colspan="3">
+                <img src="images/1_fullcurve.png" align="middle" width="400px"/>
+                <figcaption align="middle">Full curve from control points</figcaption>
+            </td>
+        </tr>
+        <tr align="middle">
+            <td colspan="3">
+                <img src="images/1_curve_scroll.gif" align="middle" width="400px"/>
+                <figcaption align="middle">Scrolling through t with a slightly modified curve</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+
+<h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
+<ul>
+    <li>
+        Extending de Casteljau's algorithm to 2D surfaces is fairly straightforward. Since we are given 16 control points, they can be treated as
+        4 groups of 4 points (which we already know how to interpolate). Pick each group and interpolate using the u value from the 1D case. This gives us
+        4 bezier points for each of these curves, now use the same 1D algorithm on them (with parameter v) to end up with the final point on the bezier surface.
+    </li>
+    <li>
+        Once again, my algorithm follows the exact process described above. I have a helped 1D de Casteljau function that is called 4 times to come up with
+        the points lerped by u. Then I call the function on those points with parameter v to end up with the output point.
+    </li>
+</ul>
+<div align="middle">
+    <img src="images/2_1.jpeg" align="middle" width="600px"/>
+    <figcaption align="middle" style="margin:auto">Bezier teapot, indistinguishable from reality</figcaption>
+</div>
+
+
+<h2 align="middle">Section II: Sampling</h2>
+
+<h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+
+<ul>
+    <li>
+        The normal averaging happens by looking at the surface normal of all the adjacent faces to a point and averaging them weighted
+        by the area of each face. This results in smoother shading instead of flat-shading. The area weighted normal is calculated as
+        the cross product of each of the triangles edges and averaged over the number of triangles (faces) around the point. This same
+        procedure is implemented in code.
+    </li>
+</ul>
+<div align="middle">
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td>
+                <img src="images/3_1.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">Unaveraged beast</figcaption>
+            </td>
+            <td>
+                <img src="images/3_2.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">Normalized beauty</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<h3 align="middle">Part 4: Half-edge flip</h3>
+
+<ul>
+    <li>
+        In my halfedge code I first name every vertex, edge and face in consideration, regardless of where it's used. That is, I have variables
+        for all the vertices, all edges, all halfedges and all faces. This might be excessive but it made the rest of the implementation straightforward.
+    </li>
+    <li>
+        Given all these names, I first check if the edge belongs to the boundary and if it does I return without doing anything.
+    </li>
+    <li>
+        Otherwise, I create yet another set of variables for the new halfedges which just point to some old halfedges.
+    </li>
+    <li>
+        Finally I go through each element in the scene and set it's halfedge or if it is a halfedge, I set all the other elements based on the new
+        picture. This is made relatively straightforward because of the extensive variable naming that I did earlier.
+    </li>
+</ul>
+<div align="middle">
+
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td>
+                <img src="images/4_1.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">The edge to be flipped</figcaption>
+            </td>
+            <td>
+                <img src="images/4_2.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">The edge after flipping</figcaption>
+            </td>
+        </tr>
+        <tr class="p-tb-md">
+            <td>
+                <img src="images/4_3.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">Zoomed in to a more complex edge flip</figcaption>
+            </td>
+            <td>
+                <img src="images/4_4.jpeg" align="middle" width="400px"/>
+                <figcaption align="middle">The more complex edge after flip, <br>the shading changes because of face orientation</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<h3 align="middle">Part 5: Half-edge split</h3>
+
+<ul>
+    <li>
+        (Same as before, but to reiterate) <br>
+        In my halfedge split code I first name every vertex, edge and face in consideration, regardless of where it's used. That is, I have variables
+        for all the vertices, all edges, all halfedges and all faces. This might be excessive but it made the rest of the implementation straightforward.
+    </li>
+    <li>
+        Given all these names, I first check if either of the faces belongs to the boundary and if it does I return without doing anything.
+    </li>
+    <li>
+        Otherwise, I create all the new objects required i.e. 3 new edges, 2 new faces etc. These are once again named based on what their final
+        role will be, so a face will be something like abc denoting that it is the face belonging to vertices abc.
+    </li>
+    <li>
+        Then I create the new vertex m. Using this and all the bojects I previously created, I simply set everything to its correct position.
+        Then I return m.
+    </li>
+    <li>
+        I didn't have a lot of debugging here, my explicit naming convention helped!
+    </li>
+</ul>
+<div align="middle">
+
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td colspan="3" align="middle">
+                <img src="images/5_1.jpeg" align="middle" width="250px"/>
+                <figcaption align="middle">The edge to be split</figcaption>
+            </td>
+            <td colspan="3" align="middle">
+                <img src="images/5_2.jpeg" align="middle" width="250px"/>
+                <figcaption align="middle">The edge after splitting</figcaption>
+            </td>
+        </tr>
+        <tr class="p-tb-md">
+            <td colspan="2">
+                <img src="images/5_3.jpeg" align="middle" width="250px"/>
+                <figcaption align="middle" style="color:white">Introducing a degree 5 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+            <td colspan="2">
+                <img src="images/5_4.jpeg" align="middle" width="250px"/>
+
+                <figcaption align="middle">Introducing a degree 5 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+            <td colspan="2">
+                <img src="images/5_5.jpeg" align="middle" width="250px"/>
+                <figcaption align="middle" style="color:white">Introducing a degree 5 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+
+<ul>
+    <li>
+        I go through all the vertices of the old mesh and flag them as old while also updating their newPosition attribute for their final position.
+    </li>
+    <li>
+        I then go through all the edges of the original mesh and update their newPosition with the final position of vertices that will end up in th e
+        middle of these edges.
+    </li>
+    <li>
+        The, while iterating upto the size of the edgeList of the original mesh, I split each edge using the splitEdge function defined previously.
+        I also flag all the new vertices returned by the splitEdge method. I modified the splitEdge method here to correctly mark edges as new or
+        old since it was easier to do it in there.
+    </li>
+    <li>
+        Then I go through all the edges in the new mesh and flip new edges that connect an old and new vertex using the flags previously defined.
+    </li>
+    <li>
+        Finally I set all the vertices to the correct positions.
+    </li>
+    <li>
+        I did have to go to project party to debug here. My error was not reading the spec closely and marking edges that were along an old edge as new
+        instead of old as the spec told us to do. Once that problem was resolved my upsampling worked!
+    </li>
+    <li>
+        The cube splitting asymmetrically happens because the edge orientations are random along the diagonal, so when the halfedge flipping and splitting operations
+        happen, different faces of the cube are split differently. More flips and splits cause this effect to cascade.
+        I was able to create a symmetric shape by turning the cube into a composition of tetrahedrons as you can see in the images below. The last 3 images
+        are the same cube in different angles showing the symmetry.
+        That allowed each tertrahedron to symmetrically evolve into the same shape. Interestingly, we also see the effect documented in lecture where
+        we have vertices of degree not 6 formed when we perform this operation.
+    </li>
+</ul>
+<div align="middle">
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td>
+                <img src="images/6_1.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_2.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_3.jpeg" align="middle" width="250px"/>
+            </td>
+        </tr>
+        <br><br>
+        <tr>
+            <td>
+                <img src="images/6_4.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_5.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_6.jpeg" align="middle" width="250px"/>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <img src="images/6_7.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_8.jpeg" align="middle" width="250px"/>
+            </td>
+            <td>
+                <img src="images/6_9.jpeg" align="middle" width="250px"/>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<div align="middle">
+
+    <table style="width=100%">
+        <tr class="p-tb-md">
+            <td colspan="3" align="middle">
+                <img src="images/6_10.jpeg" align="middle" width="250px"/>
+                <figcaption align="middle">The cube modified for symmetric upsampling</figcaption>
+            </td>
+            <td colspan="3" align="middle">
+                <img src="images/6_11.jpeg" align="middle" width="260px"/>
+            </td>
+        </tr>
+        <tr class="p-tb-md">
+            <td colspan="2">
+                <img src="images/6_12.jpeg" align="middle" width="260px"/>
+                <figcaption align="middle" style="color:white">Introducing a degree 6 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+            <td colspan="2">
+                <img src="images/6_13.jpeg" align="middle" width="260px"/>
+
+                <figcaption align="middle">Introducing a degree 6 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+            <td colspan="2">
+                <img src="images/6_14.jpeg" align="middle" width="260px"/>
+                <figcaption align="middle" style="color:white">Introducing a degree 6 vertex <br> with a combination of flips and splits</figcaption>
+            </td>
+        </tr>
+    </table>
+</div>
+<h2 align="middle">Section III: Mesh Competition</h2>
+<p>If you are not participating in the optional mesh competition, don't worry about this section!</p>
+
+<h3 align="middle">Part 7: Design your own mesh!</h3>
+
+</body>
+</html>
+

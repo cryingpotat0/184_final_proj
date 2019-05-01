@@ -1,0 +1,419 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>  
+    div.padded {  
+      padding-top: 0px;  
+      padding-right: 100px;  
+      padding-bottom: 0.25in;  
+      padding-left: 100px;
+    }
+        body {
+            padding: 100px;
+            width: 1000px;
+            margin: auto;
+            text-align: left;
+            font-weight: 300;
+            font-family: 'Open Sans', sans-serif;
+            color: #121212;
+        }
+        h1, h2, h3, h4 {
+            font-family: 'Source Sans Pro', sans-serif;
+        }
+
+        tr {
+            align: middle;
+        }
+        .p-tb-md {
+            margin: 30px 0 30px 0;
+
+        }
+      </style>
+<title>Raghav Anand |  CS 184</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+</head>
+<body>
+<br />
+<h1 align="middle">Assignment 3: PathTracer</h1>
+<h2 align="middle">Raghav Anand</h2>
+
+<div class="padded">
+    <h3>Summary</h3>
+    This project allowed me to see how different ray tracing techniques can be used to render complex effects in images. It was
+    really interesting to see these effects pop up and change based on different parameters. At the same time, this project was
+    absolute hell to debug because errors propagate through multiple functions, and pinpointing the source of the error is quite difficult.
+</div>
+
+<div class="padded">
+    <h2>Part 1</h2>
+    <ul>
+        <li>
+            <h3>Ray Generation</h3>
+            <p>
+                Ray generation is the basic step used for all ray-tracing operations. I will cover the case of more than one sample,
+                but the details are exactly the same except the point we sample from the raster plane is exactly in the middle of
+                the current sample target. For other cases, we pick a coordinate on the raster plane, sample a point in the 1x1 grid
+                corresponding to that point, and ask the camera to generate a ray corresponding to this point through the sensor plane.
+                The sensor plane here is behind the raster plane and is normalized to a width and height of 1. <br>
+                The camera generates the ray by simply a multiplying the provided coordinates by the correct width / height scaling factors.
+                Using the forumla from the spec, we calculate the world coordinates of the camera plane, and finally return the ray using
+                these coordinates as edge bounds.
+            </p>
+        </li>
+        <li>
+            <h3>Triangle Intersections</h3>
+            <p>
+                Triangle intersections are implemented with the Moller Trumbore algorithm from lecture.
+                Compute the edges (e1, e2), s, p0, s2 (see slides).
+                I then compute the vector of (t, b_1, b_2) using the correct matrices and check if intersection happens by checking
+                if all the barycentric coordinates are between 0 and 1, followed by checking if t is within the admissible t's for the
+                specific ray.
+                I finally populate the intersection object with the correct t, n (interpolated using the barycentric b_1, b_2, 1-b_1-b_2 = b_0),
+                and bsdf.
+            </p>
+        </li>
+        <li>
+            <h3>Sphere Intersections</h3>
+            <p>
+                Triangle intersections are implemented with the algorithm from lecture.
+                The bulk of the work happens in the test function, where intersection is checked, and depending on the relative sizes of
+                the two t values obtained (since a ray intersects a sphere at two points), the smaller one is returned as t1.
+                The outer methods then use this boolean test, along with the condition that t1 is within the rays admissible t's.
+                The normal is then computed using the correct t and the center of the sphere (create a ray between these two points
+                and normalize). The other attributes of the intersection object are assigned as before.
+            </p>
+        </li>
+        <li>
+            Some simple renders are shown below.
+        </li>
+    </ul>
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/1_spheres.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Lambertian Spheres</figcaption>
+                </td>
+                <td>
+                    <img src="images/1_gems.png" align="middle" width="100%"/>
+                    <figcaption align="middle">CB Gems</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="padded">
+    <h2>Part 2</h2>
+    <ul>
+        <li>
+            <h3>BVH Construction</h3>
+            <p>
+                The BVH is constructed recursively following the pattern outlined in the spec. If the remaining number of primitives
+                is smaller than some threshold, I put these into a single leaf node and return the node. Otherwise I counstruct the
+                left and right subtrees using a helper method, split_by_axis. The construct_bvh method decides which index to split
+                by (the larges axis). The split_by_axis method then looks at the objects and divides them into left and right groups
+                based on the median objects centroid. If all the objects are the same, there will be one empty vector. In this case I put
+                half the objects in each bvh hierarchy.
+            </p>
+        </li>
+        <li>
+            <h3>BVH Intersection</h3>
+            <p>
+                I go through each node in the tree with a check if an intersection occurs with the bounding box at that node.
+                If it does, I check the left and right node for intersecetions with the ray and continue down until I hit a
+                leaf node. At the leaf node I go through all the primitives and check for intersection. <br>
+                My bounding box intersection algorithm goes through the x, y,z coordinates in that order and checks for intersection with each of the slabs.
+                It then also checks if the correct conditions are met with respect to order of various t's for the x, y and z slabs.
+                Finally I pick the minimum and maximum t's as the maximum of the lower bounds and the minimum of the upper bounds respectively.
+
+            </p>
+        </li>
+        <li>
+            <h3>Speed Comparison</h3>
+            <p>
+
+                The bunny was used for a speed comparison. With the bvh it took 5.18 seconds, and without the bvh it
+                took 785 seconds. Most rays will not hit most parts of the image, and the bvh helps us quickly isolate
+                the part of the image the ray does hit, thus making our search go from n to almost log(n) (as a rough
+                estimate, there is still a worst case n).
+            </p>
+        </li>
+    </ul>
+    <h3>Objects that couldn't be rendered quickly before</h3>
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/2_bunny.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny</figcaption>
+                </td>
+                <td>
+                    <img src="images/2_dragon.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Dragon</figcaption>
+                </td>
+                <td>
+                    <img src="images/2_lucy.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Lucy</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="padded">
+    <h2>Part 3</h2>
+    <ul>
+        <li>
+            <h3>Hemisphere Direct Lighting</h3>
+            <p>
+                Given a ray from the camera to the primitive, and the intersection object corresponding to that intersection,
+                this function shoots rays out to light sources to get the irradiance contributed. Rays are sampled along
+                a hemisphere for a certain number of defined samples, and the irradiance is calculated as a product of the
+                light emission, primitive bsdf, cos of the angle of the outgoing ray to the light and the reciprocl of the
+                probability of sampling that ray. This is essentially a version of monte carlo sampling.
+            </p>
+        </li>
+        <li>
+            <h3>Importance Direct Lighting</h3>
+            <p>
+                This solves the sparsity of light issue with hemisphere sampling. With the same setup as before, importance sampling now looks
+                at light rays and projects them from source (sampling these rays) to the object. This allows more intersections with
+                light sources, and gives richer detail with less noise with fewer samples. The implementation is the same, except we are
+                now going through light sources, and for each light source we average out it's contribution to the irradiance of the object
+                at that point using the same product presented before.
+            </p>
+        </li>
+        <li>
+            <h3>Comparison</h3>
+                The above two already have some comparison, but essentially hemisphere sampling is noisier with the same number of
+            samples.
+            <p>
+            </p>
+        </li>
+    </ul>
+    <h3>Image comparison between hemisphere and direct</h3>
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/3_CBbunny_s16_l8_m6_H.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny 16 samples/ light ray, <br> 8 light rays, hemisphere sampling</figcaption>
+                </td>
+                <td>
+                    <img src="images/3_CBbunny_s16_l8_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny 16 samples/ light ray, <br> 8 light rays, importance sampling</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/3_CBbunny_s64_l32_m6_H.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny 64 samples/ light ray, <br> 32 light rays, hemisphere sampling</figcaption>
+                </td>
+                <td>
+                    <img src="images/3_CBbunny_s64_l32_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny 64 samples/ light ray, <br> 32 light rays, importance sampling</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/3_dragon_s16_l8_m6_H.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Dragon doesn't show up with <br> hemisphere lighting because point light
+                    source intersection doesn't happen</figcaption>
+                </td>
+                <td>
+                    <img src="images/3_dragon_s64_l32_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Dragon importance lighting</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Noise levels in Soft Shadows using Importance Sampling</h3>
+    All images below are 1 sample per pixel, with variable number of light rays per sample. Soft shadows greatly benefit from
+    increased numbers of light rays! This makes sense because more light rays mean that the many rays that are required to
+    be traced to create soft shadows are more likely to be created.
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/3_CBbunny_s1_l1_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">1 light ray</figcaption>
+                </td>
+                <td>
+                    <img src="images/3_CBbunny_s1_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">4 light rays</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/3_CBbunny_s1_l16_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">16 light rays</figcaption>
+                </td>
+                <td>
+                    <img src="images/3_CBbunny_s1_l64_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">64 light rays</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+
+
+<div class="padded">
+    <h2>Part 3</h2>
+    <h3>Indirect Lighting Implementation</h3>
+    <p>
+        Indirect lighting is implemented recursively as in the spec. The first bounce always happens if max_ray_depth is greater
+        than 1, and after that rays are randomly terminated in the inner loop. If the ray is not terminated, then an additional
+        term is added to the output irradiance as a weighted product of the irradiance from the next bounce, weighted by
+        the termination probability and sampling pdf of that particular ray.
+
+    </p>
+
+    <h3>Images with Global Illumination</h3>
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s1024_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Spheres</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/4_CBbunny_lambertian_s1024_l4_m1024.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Only direct vs only indirect illumination</h3>
+    Cool images! Clear contribution from both aspects.
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/4_only_direct.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Only direct</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_only_indirect.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Only indirect</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <h3>Varying max ray depth (maximum number of bounces)</h3>
+    As expected, the detail, lightness and reflections in the image increase asymptotically with more rays. Having 1024 or 64 or 100
+    bounces doesn't matter anymore because the probability that all of them actually bounce is basically 0 beyond the first few
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/3_CBbunny_s64_l32_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">0 bounces</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBbunny_s1024_l4_m1.png" align="middle" width="100%"/>
+                    <figcaption align="middle">1 bounces</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBbunny_lambertian_s1024_l4_m2.png" align="middle" width="100%"/>
+                    <figcaption align="middle">2 bounces</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/4_CBbunny_lambertian_s1024_l4_m8.png" align="middle" width="100%"/>
+                    <figcaption align="middle">8 bounces</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBbunny_lambertian_s1024_l4_m1024.png" align="middle" width="100%"/>
+                    <figcaption align="middle">1024 bounces!!</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+     <h3>Varying sample-per-pixel rates</h3>
+    Increased sample-per-pixel rates result in less noisy images as usual.
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s1_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">1 sample-per-pixel</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s2_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">2 sample-per-pixel</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s4_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">4 sample-per-pixel</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s8_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">8 sample-per-pixel</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s16_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">16 sample-per-pixel</figcaption>
+                </td>
+                <td>
+                    <img src="images/4_CBspheres_lambertian_s64_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">64 sample-per-pixel</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3">
+                    <img src="images/4_CBspheres_lambertian_s1024_l4_m6.png" align="middle" width="100%"/>
+                    <figcaption align="middle">1024 sample-per-pixel</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+
+<div class="padded">
+    <h2>Part 5</h2>
+    <h3>Adaptive Sampling Implementation</h3>
+    <p>
+        Adaptive sampling is implemented as directed in the spec. First a sample colour is obtained and then it is accumulated in a sum
+        and sum_of_squares variable. These are then used to calculate the sample mean and variance of the illuminance for this pixel
+        every k steps. If these lie within a 95% confidence interval of convergence to the mean, we assume convergence and stop
+        sampling more for this pixel.
+    </p>
+
+    <h3>Images</h3>
+    <div align="middle">
+        <table style="width:100%">
+            <tr>
+                <td>
+                    <img src="images/5_CBbunny_s2048_a64_l1_m5.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny</figcaption>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/5_CBbunny_s2048_a64_l1_m5_rate.png" align="middle" width="100%"/>
+                    <figcaption align="middle">Bunny rate</figcaption>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>
+
+
+
+
