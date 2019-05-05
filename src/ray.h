@@ -25,8 +25,10 @@ struct Ray {
   Vector3D d;  ///< direction
   mutable double min_t; ///< treat the ray as a segment (ray "begin" at min_t)
   mutable double max_t; ///< treat the ray as a segment (ray "ends" at max_t)
-  const int max_steps = 20;
-  const float step_size = 0.1;//0.01;
+  mutable bool curved = false;
+  Vector3D a;
+  Vector3D b = Vector3D(1, 2, 3).unit();
+  Vector3D c;
 
 
   Vector3D inv_d;  ///< component wise inverse
@@ -63,6 +65,7 @@ struct Ray {
     sign[2] = (inv_d.z < 0);
   }
 
+  /*
   Ray surface_tangent() const {
      auto normal = (o).unit();
      //printf("normal: %f, %f, %f\n\n", normal.x, normal.y, normal.z);
@@ -77,6 +80,7 @@ struct Ray {
      new_orig = new_orig.unit() * o.norm();
      return Ray(new_orig, tangent.d);
   }
+   */
 
 
   /**

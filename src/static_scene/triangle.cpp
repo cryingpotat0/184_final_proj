@@ -80,7 +80,7 @@ bool Triangle::intersect(const Ray& r, Intersection *isect) const {
   //ray.d = r.d;
   ray.min_t = r.min_t; // old->min_t;
   ray.max_t = old->step_size;//r.max_t;// old->step_size;
-  if (false) {
+  if (true) {
     Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3]);
     Vector3D n1(mesh->normals[v1]), n2(mesh->normals[v2]), n0(mesh->normals[v3]);
     auto e1 = p1 - p0, e2 = p2 - p0, s = r.o - p0, s1 = cross(r.d, e2), s2 = cross(s, e1);
