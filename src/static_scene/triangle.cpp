@@ -73,14 +73,7 @@ Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3
 
 bool Triangle::intersect(const Ray& r, Intersection *isect) const {
 
-  const Ray* old = &r;
-  Ray ray = old->surface_tangent();
-  //printf("r: %f, %f, %f\n", r.d.x, r.d.y, r.d.z);
-  //printf("ray: %f, %f, %f\n\n", ray.d.x, ray.d.y, ray.d.z);
-  //ray.d = r.d;
-  ray.min_t = r.min_t; // old->min_t;
-  ray.max_t = old->step_size;//r.max_t;// old->step_size;
-  if (true) {
+  if (!r.curved) {
     Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3]);
     Vector3D n1(mesh->normals[v1]), n2(mesh->normals[v2]), n0(mesh->normals[v3]);
     auto e1 = p1 - p0, e2 = p2 - p0, s = r.o - p0, s1 = cross(r.d, e2), s2 = cross(s, e1);
@@ -103,7 +96,52 @@ bool Triangle::intersect(const Ray& r, Intersection *isect) const {
     return false;
 
 
+  } else {
+      // ray is curved
+      // https://math.stackexchange.com/questions/2210938/finding-the-intersection-between-a-triangle-and-a-parabola-in-3-dimensional-spac
+      Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3]);
+      Vector3D n1(mesh->normals[v1]), n2(mesh->normals[v2]), n0(mesh->normals[v3]);
+      auto g = r.a, d = r.b, p = r.c, u = p1 - p0, v = p2 - p0, q = p0;
+      auto w = cross(u, v);
+      double plus_minus_term = sqrt(pow(dot(w, d), 2) - 4 * (dot(w, p-q) * dot(w, g)) );
+      double t = (-dot(w, d));
+      double t1 = (t + plus_minus_term) / (2 * dot(w, g));
+      double t2 = (t - plus_minus_term) / (2 * dot(w, g));
+      double curr_t = min(t1, t2);
+      if (curr_t < 1 && curr_t > 0 && curr_t < r.max_t && curr_t > r.min_t) {
+          Vector3D point_on_tri = r.at_time(curr_t);
+          double b1 = (-(point_on_tri.x - p2.x) * (p0.y - p2.y) + (point_on_tri.y - p2.y) * (p0.x - p2.x) ) / (-(p1.x - p2.x) * (p0.y - p2.y) + (p1.y - p2.y) * (p0.x - p2.x) );
+          double b2 = (-(point_on_tri.x - p0.x) * (p1.y - p0.y) + (point_on_tri.y - p0.y) * (p1.x - p0.x) ) / (-(p2.x - p0.x) * (p1.y - p0.y) + (p2.y - p0.y) * (p1.x - p0.x));
+          double b0 = 1 - b1 - b2;
+          if (b1 <= 1 && b1 >= 0 && b2 <= 1 && b2 >= 0 && b0 <= 1 && b0 >= 0 && t <= r.max_t && t >= r.min_t) {
+              isect->t = t;
+              isect->primitive = this;
+              isect->bsdf=get_bsdf();
+              isect->n = b1 * n1 + b2 * n2 + b0 *n0;
+              isect -> n /= isect -> n.norm();
+              r.max_t = t;
+              return true;
+          }
+      }
+      curr_t = max(t1, t2);
+      if (curr_t < 1 && curr_t > 0 && curr_t < r.max_t && curr_t > r.min_t) {
+          Vector3D point_on_tri = r.at_time(curr_t);
+          double b1 = (-(point_on_tri.x - p2.x) * (p0.y - p2.y) + (point_on_tri.y - p2.y) * (p0.x - p2.x) ) / (-(p1.x - p2.x) * (p0.y - p2.y) + (p1.y - p2.y) * (p0.x - p2.x) );
+          double b2 = (-(point_on_tri.x - p0.x) * (p1.y - p0.y) + (point_on_tri.y - p0.y) * (p1.x - p0.x) ) / (-(p2.x - p0.x) * (p1.y - p0.y) + (p2.y - p0.y) * (p1.x - p0.x));
+          double b0 = 1 - b1 - b2;
+          if (b1 <= 1 && b1 >= 0 && b2 <= 1 && b2 >= 0 && b0 <= 1 && b0 >= 0 && t <= r.max_t && t >= r.min_t) {
+              isect->t = t;
+              isect->primitive = this;
+              isect->bsdf=get_bsdf();
+              isect->n = b1 * n1 + b2 * n2 + b0 *n0;
+              isect -> n /= isect -> n.norm();
+              r.max_t = t;
+              return true;
+          }
+      }
+      return false;
   }
+  /*
   for(int i=0; i < 20; i++) {
     Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3]);
     Vector3D n1(mesh->normals[v1]), n2(mesh->normals[v2]), n0(mesh->normals[v3]);
@@ -136,6 +174,7 @@ bool Triangle::intersect(const Ray& r, Intersection *isect) const {
 
     old = &temp;
   }
+   */
 
 
   return false;

@@ -553,8 +553,9 @@ Spectrum PathTracer::estimate_direct_lighting_importance(const Ray& r, const Int
 
   // w_out points towards the source of the ray (e.g.,
   // toward the camera if this is a primary ray)
-  const Vector3D& hit_p = r.o + r.d * isect.t;
-  const Vector3D& w_out = w2o * (-r.d);
+  //const Vector3D& hit_p = r.o + r.d * isect.t;
+  const Vector3D& hit_p = r.at_time(isect.t);
+  const Vector3D& w_out = w2o * ((r.b + r.a).unit());
   Spectrum L_out;
 
   // TODO (Part 3.2): 
@@ -575,9 +576,19 @@ Spectrum PathTracer::estimate_direct_lighting_importance(const Ray& r, const Int
       Vector3D w_in = w2o * wi;
       if (w_in.z < 0) continue;
       Ray sr = Ray(hit_p + EPS_D * wi, wi);
+      Intersection intersection;
       sr.max_t = (double) distToLight;
-      if (bvh->intersect(sr)) continue;
+      if (bvh->intersect(sr, &intersection)) continue;
       //auto val = .bsdf->get_emission() * isect.bsdf->f(wi_world, w_out) * wi.z / pdf;
+
+      /*
+      auto g = r.at_time(intersection.t);
+      auto b = Vector3D(51, 52, 30);
+      auto curved_ray = Ray(g - r.o - b, b, r.o);
+      Intersection curved_intersection;
+      if (bvh->intersect(curved_ray, &curved_intersection)) continue;
+       */
+
       auto val = radiance * isect.bsdf->f(w_out, w_in) * w_in.z / (double) (pdf * curr_samples);
       curr_L_out += val;
     }
@@ -652,7 +663,15 @@ Spectrum PathTracer::at_least_one_bounce_radiance(const Ray&r, const Intersectio
     Intersection intersection;
     if(!bvh->intersect(new_ray, &intersection)) return L_out;
     if (coin_flip(roulette) || r.depth == max_ray_depth) {
-      auto val = at_least_one_bounce_radiance(new_ray, intersection) * isect.bsdf->f(w_out, w_in) * w_in.z / (pdf * roulette);
+
+      auto g = r.at_time(intersection.t);
+      auto b = Vector3D(51, 52, 30);
+      auto curved_ray = Ray(g - r.o - b, b, r.o);
+      Intersection curved_intersection;
+      bvh->intersect(curved_ray, &curved_intersection);
+
+      //auto val = at_least_one_bounce_radiance(new_ray, intersection) * isect.bsdf->f(w_out, w_in) * w_in.z / (pdf * roulette);
+      auto val = at_least_one_bounce_radiance(curved_ray, curved_intersection) * isect.bsdf->f(w_out, w_in) * w_in.z / (pdf * roulette);
       L_out += val;
     }
   }
@@ -683,9 +702,18 @@ Spectrum PathTracer::est_radiance_global_illumination(const Ray &r) {
   //return one_bounce_radiance(r, isect);
   //return estimate_direct_lighting_importance(r, isect);
 
-  // TODO (Part 4): Accumulate the "direct" and "indirect" 
+  // MAKE RAY CUUUUUUURVE
+  //if () {
+  auto g = r.at_time(isect.t);
+  auto b = Vector3D(51, 52, 30);
+  auto curved_ray = Ray(g - r.o - b, b, r.o);
+
+
+  // WOOOOOOOO
+
+  // TODO (Part 4): Accumulate the "direct" and "indirect"
   // parts of global illumination into L_out rather than just direct
-  return zero_bounce_radiance(r, isect) + at_least_one_bounce_radiance(r, isect);
+  return zero_bounce_radiance(curved_ray, isect) + at_least_one_bounce_radiance(curved_ray, isect);
 
   return L_out;
 }
@@ -721,6 +749,7 @@ Spectrum PathTracer::raytrace_pixel(size_t x, size_t y) {
               ((sample.y + origin.y)) / (double) sampleBuffer.h
       );
       r.depth = max_ray_depth;
+
       auto new_spec = est_radiance_global_illumination(r);
       s += new_spec;
       actual_samples_taken++;

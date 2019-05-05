@@ -25,9 +25,9 @@ struct Ray {
   Vector3D d;  ///< direction
   mutable double min_t; ///< treat the ray as a segment (ray "begin" at min_t)
   mutable double max_t; ///< treat the ray as a segment (ray "ends" at max_t)
-  mutable bool curved = false;
+  bool curved = false;
   Vector3D a;
-  Vector3D b = Vector3D(1, 2, 3).unit();
+  Vector3D b;
   Vector3D c;
 
 
@@ -48,6 +48,20 @@ struct Ray {
     sign[1] = (inv_d.y < 0);
     sign[2] = (inv_d.z < 0);
   }
+  /**
+   * Constructor.
+   * Create a ray instance with given origin and direction.
+   * \param o origin of the ray
+   * \param d direction of the ray
+   * \param depth depth of the ray
+   */
+    Ray(const Vector3D& a, const Vector3D& b, const Vector3D& c, int depth = 0)
+            : a(a), b(b), c(c), min_t(0.0), max_t(1.0), curved(true), depth(depth) {
+        inv_d = Vector3D(1 / d.x, 1 / d.y, 1 / d.z);
+        sign[0] = (inv_d.x < 0);
+        sign[1] = (inv_d.y < 0);
+        sign[2] = (inv_d.z < 0);
+    }
 
   /**
    * Constructor.
@@ -86,7 +100,13 @@ struct Ray {
   /**
    * Returns the point t * |d| along the ray.
    */
-  inline Vector3D at_time(double t) const { return o + t * d; }
+  inline Vector3D at_time(double t) const {
+      if (!curved) {
+          return o + t * d;
+      } else {
+         return a * t * t + b * t + c;
+      }
+  }
 
   /**
    * Returns the result of transforming the ray by the given transformation
