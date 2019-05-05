@@ -68,6 +68,7 @@ struct Ray {
      //printf("normal: %f, %f, %f\n\n", normal.x, normal.y, normal.z);
      float alpha = 0.9;
      return Ray(o, alpha * d + (1 - alpha) * (d - dot(d, normal) * normal).unit());
+
   }
 
   Ray next_ray() const {
