@@ -104,7 +104,7 @@ bool Triangle::intersect(const Ray& r, Intersection *isect) const {
 
 
   }
-  for(int i=0; i < 20; i++) {
+  for(int i=0; i < 100; i++) {
     Vector3D p1(mesh->positions[v1]), p2(mesh->positions[v2]), p0(mesh->positions[v3]);
     Vector3D n1(mesh->normals[v1]), n2(mesh->normals[v2]), n0(mesh->normals[v3]);
     auto e1 = p1 - p0, e2 = p2 - p0, s = ray.o - p0, s1 = cross(ray.d, e2), s2 = cross(s, e1);

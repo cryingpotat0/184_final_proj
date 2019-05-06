@@ -28,10 +28,14 @@ def normalize(x):
     x /= np.linalg.norm(x)
     return x
 
-def intersect_plane(O, D, P, N):
+def intersect_plane(O, D, P, N, portal=False):
     # Return the distance from O to the intersection of the ray (O, D) with the 
     # plane (P, N), or +inf if there is no intersection.
     # O and P are 3D points, D and N (normal) are normalized vectors.
+    if portal:
+        # do some non-euclidean ray march here
+        pass
+
     denom = np.dot(D, N)
     if np.abs(denom) < 1e-6:
         return np.inf
@@ -40,7 +44,7 @@ def intersect_plane(O, D, P, N):
         return np.inf
     return d
 
-def intersect_sphere(O, D, S, R):
+def intersect_sphere(O, D, S, R, portal=False):
     # Return the distance from O to the intersection of the ray (O, D) with the 
     # sphere (S, R), or +inf if there is no intersection.
     # O and S are 3D points, D (direction) is a normalized vector, R is a scalar.
@@ -59,7 +63,7 @@ def intersect_sphere(O, D, S, R):
             return t1 if t0 < 0 else t0
     return np.inf
 
-def intersect_portal(O, D, S, R):
+def intersect_portal(O, D, S, R, portal=False):
     # Return the distance from O to the intersection of the ray (O, D) with the 
     # sphere (S, R), or +inf if there is no intersection.
     # O and S are 3D points, D (direction) is a normalized vector, R is a scalar.
@@ -78,13 +82,13 @@ def intersect_portal(O, D, S, R):
             return t1 if t0 < 0 else t0
     return np.inf
 
-def intersect(O, D, obj):
+def intersect(O, D, obj, portal=False):
     if obj['type'] == 'plane':
-        return intersect_plane(O, D, obj['position'], obj['normal'])
+        return intersect_plane(O, D, obj['position'], obj['normal'], portal=portal)
     elif obj['type'] == 'sphere':
-        return intersect_sphere(O, D, obj['position'], obj['radius'])
+        return intersect_sphere(O, D, obj['position'], obj['radius'], portal=portal)
     elif obj['type'] == 'portal':
-        return intersect_sphere(O, D, obj['position'], obj['radius'])
+        return intersect_sphere(O, D, obj['position'], obj['radius'], portal=portal)
 
 def get_normal(obj, M):
     # Find normal.
@@ -112,17 +116,14 @@ def trace_ray(rayO, rayD):
     if t == np.inf:
         return
     # Find the object.
-    M_ = rayO + rayD * t
-    # Find properties of the object.
-    N_ = get_normal(obj, M_)
     obj = scene[obj_idx]
     if obj['type'] == "portal":
-        portal = True
+        portal = obj
         rayO = rayO + rayD * t + obj['destination']
         t = np.inf
         for i, obj in enumerate(scene):
             if obj['type'] == "portal": continue
-            t_obj = intersect(rayO, rayD, obj)
+            t_obj = intersect(rayO, rayD, obj, portal=True)
             if t_obj < t:
                 t, obj_idx = t_obj, i
         if t == np.inf:
@@ -133,6 +134,9 @@ def trace_ray(rayO, rayD):
     # Find properties of the object.
     N = get_normal(obj, M)
     color = get_color(obj, M)
+    #if portal: 
+    #    alpha = 0.7
+    #    color = alpha * color + (1 - alpha) * portal['color']
     toL = normalize(L - M)
     toO = normalize(O - M)
     # Shadow: find if the point is shadowed or not.
@@ -142,12 +146,16 @@ def trace_ray(rayO, rayD):
         return
     # Start computing the color.
     col_ray = ambient
+    if portal:
+        alpha = 0.7
+        col_ray = alpha * col_ray + (1 - alpha) * portal['color']
+
     # Lambert shading (diffuse).
     #if portal and obj['type'] == "sphere": color = np.array([.5, .223, .5])
     col_ray += obj.get('diffuse_c', diffuse_c) * max(np.dot(N, toL), 0) * color
     # Blinn-Phong shading (specular).
     col_ray += obj.get('specular_c', specular_c) * max(np.dot(N, normalize(toL + toO)), 0) ** specular_k * color_light
-    if portal: return obj, M_, N_, col_ray
+    #if portal: return obj, M_, N_, col_ray
     return obj, M, N, col_ray
 
 def add_sphere(position, radius, color):
@@ -169,7 +177,7 @@ def add_plane(position, normal):
 # List of objects.
 color_plane0 = 1. * np.ones(3)
 color_plane1 = 0. * np.ones(3)
-scene = [add_portal([.75, .1, 1.], .6, [0., 0., 1.], [-2.7, 0.5, 0]),
+scene = [add_portal([.75, .1, 1.], .3, [0., 0., 1.], [-4, 0.1, -2]),
          add_sphere([-.75, .1, 2.25], .6, [.5, .223, .5]),
          add_sphere([-2.75, .1, 3.5], .6, [1., .572, .184]),
          #add_portal([-.75, 1., 1.5], .6, [1., .572, .184], [-1, -1, 0]),
