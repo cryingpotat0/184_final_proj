@@ -4,7 +4,7 @@
 
 #include <algorithm>
 #include <iostream>
-#include <CoreImage/CoreImage.h>
+//#include <CoreImage/CoreImage.h>
 
 namespace CGL {
 

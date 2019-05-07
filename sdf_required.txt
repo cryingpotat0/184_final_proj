@@ -1,0 +1,60 @@
+float sdBox( vec3 p, vec3 b )
+{
+    vec3 d = abs(p) - b;
+    return min(max(d.x,max(d.y,d.z)),0.0) + length(max(d,0.0));
+}
+
+float sdCylH(vec3 p, vec2 h)
+{
+    vec2 d = abs(vec2(length(p.yz),p.x)) - h;
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float sdCylX(vec3 p, vec2 h)
+{
+    vec2 d = abs(vec2(length(p.xy),p.z)) - h;
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float sdRoundBox( vec3 p, vec3 b, float r )
+{
+  vec3 d = abs(p) - b;
+  return length(max(d,0.0)) - r
+         + min(max(d.x,max(d.y,d.z)),0.0); // remove this line for an only partially signed sdf 
+}
+
+vec2 opU( vec2 d1, vec2 d2 )
+{
+	return (d1.x<d2.x) ? d1 : d2;
+}
+
+vec2 opS( vec2 d1, vec2 d2 ) 
+{
+    return (-d1.x<d2.x) ? d2 : -d1;
+}
+
+vec2 map( in vec3 pos )
+{
+    vec2 res = vec2( 1e10, 0.0 );
+
+    res = opU(res, vec2(sdRoundBox(pos - vec3(0, 0.3, 0), vec3(0.7, 0.07, 0.3), 0.2))); // body
+    res = opU(res, vec2(sdRoundBox(pos - vec3(0.2, 0.5, 0.0), vec3(0.5, 0.3, 0.3), 0.1)));
+    res = opS(vec2(sdBox(pos - vec3(0.2, 0.67, 0.0), vec3(0.7, 0.11, 0.35))), res); // windows
+    res = opS(vec2(sdBox(pos - vec3(0.45, 0.67, 0.0), vec3(0.2, 0.11, 0.5))), res);
+    res = opS(vec2(sdBox(pos - vec3(-0.1, 0.67, 0.0), vec3(0.2, 0.11, 0.5))), res);
+    res = opS(vec2(sdCylH(pos - vec3(-0.8, 0.45, 0.35), vec2(0.07, 0.1))), res); // headlights
+    res = opS(vec2(sdCylH(pos - vec3(-0.8, 0.45, -0.35), vec2(0.07, 0.1))), res);
+    res = opU(res, vec2(sdCylX(pos - vec3(-0.5, 0.21, 0), vec2(0.2, 0.55)))); // wheels
+    res = opU(res, vec2(sdCylX(pos - vec3(0.45, 0.21, 0), vec2(0.2, 0.55))));
+    res = opS(vec2(sdBox(pos - vec3(0.2, 0.63, 0.0), vec3(0.65, 0.11, 0.35))), res); // interior
+    res = opS(vec2(sdBox(pos - vec3(-0.8, 0.41, 0.0), vec3(0.2, 0.02, 0.22))), res); // front vent
+    res = opS(vec2(sdBox(pos - vec3(-0.8, 0.37, 0.0), vec3(0.2, 0.02, 0.24))), res);
+    res = opS(vec2(sdBox(pos - vec3(-0.8, 0.33, 0.0), vec3(0.2, 0.02, 0.24))), res);
+    res = opS(vec2(sdBox(pos - vec3(-0.8, 0.29, 0.0), vec3(0.2, 0.02, 0.22))), res);
+    res = opU(res, vec2(sdBox(pos - vec3(-0.26, 0.57, 0.5), vec3(0.02, 0.05, 0.07)))); //mirrors
+    res = opU(res, vec2(sdBox(pos - vec3(-0.26, 0.57, -0.5), vec3(0.02, 0.05, 0.07))));
+    
+
+	//res = min( res, sdBox(pos-vec3(0.5,0.4,-0.5), vec3(2.0,0.41,2.0) ) );
+    return res;
+}

@@ -3,12 +3,32 @@ import numpy as np
 import cv2
 import time
 import numbers
+from functools import reduce
 
 def extract(cond, x):
     if isinstance(x, numbers.Number):
         return x
     else:
         return np.extract(cond, x)
+
+class vec2():
+    def __init__(self, x, y):
+        (self.x, self.y) = (x, y)
+    def __mul__(self, other):
+        return vec3(self.x * other, self.y * other)
+    def __add__(self, other):
+        return vec3(self.x + other.x, self.y + other.y)
+    def __sub__(self, other):
+        return vec3(self.x - other.x, self.y - other.y)
+    def dot(self, other):
+        return (self.x * other.x) + (self.y * other.y)
+    def __abs__(self):
+        return self.dot(self)
+    def max(self, num):
+        return vec3(max(self.x, num), max(self.y, num))
+    def norm(self):
+        mag = np.sqrt(abs(self))
+        return self * (1.0 / np.where(mag == 0, 1, mag))
 
 class vec3():
     def __init__(self, x, y, z):
@@ -23,6 +43,8 @@ class vec3():
         return (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
     def __abs__(self):
         return self.dot(self)
+    def max(self, num):
+        return vec3(max(self.x, num), max(self.y, num), max(self.z, num))
     def __repr__(self):
         return str(self.components())
     def norm(self):
@@ -115,6 +137,62 @@ class Sphere:
         phong = N.dot((toL + toO).norm())
         color += rgb(1, 1, 1) * np.power(np.clip(phong, 0, 1), 50) * seelight
         return color
+
+def sdBox(p, b):
+    d = abs(p) - b;
+    return min(max(d.x, max(d.y, d.z)), 0.0) + d.max(0.0).norm()
+
+def sdCylH(p, h):
+    intermed = abs(vec2(vec2(p.y, p.z).norm(), p.x))
+    d = vec2(intermed - h.x, intermed - h.y)
+    return min(max(d.x, d.y), 0.0) + d.max(0.0).norm()
+
+def sdCylX(p, h):
+    intermed = abs(vec2(vec2(p.x, p.y).norm(), p.z))
+    d = vec2(intermed - h.x, intermed - h.y)
+    return min(max(d.x, d.y), 0.0) + d.max(0.0).norm()
+
+def sdRoundBox(p, b, r):
+    d = vec3(abs(p) - b.x, abs(p) - b.y, abs(p) - b.z)
+    return d.max(0.0).norm() - r + min(max(d.x, max(d.y, d.z)), 0.0)
+
+def opU(d1, d2):
+    return min(d1, d2)
+
+def opS(d1, d2):
+    return max(-1 * d1, d2)
+
+def carMap(pos):
+    res = 0;
+
+    res = opU(res, sdRoundBox(pos - vec3(0, 0.3, 0), vec3(0.7, 0.07, 0.3), 0.2)); # body
+    res = opU(res, sdRoundBox(pos - vec3(0.2, 0.5, 0.0), vec3(0.5, 0.3, 0.3), 0.1));
+    res = opS(sdBox(pos - vec3(0.2, 0.67, 0.0), vec3(0.7, 0.11, 0.35)), res); # windows
+    res = opS(sdBox(pos - vec3(0.45, 0.67, 0.0), vec3(0.2, 0.11, 0.5)), res);
+    res = opS(sdBox(pos - vec3(-0.1, 0.67, 0.0), vec3(0.2, 0.11, 0.5)), res);
+    res = opS(sdCylH(pos - vec3(-0.8, 0.45, 0.35), vec2(0.07, 0.1)), res); # headlights
+    res = opS(sdCylH(pos - vec3(-0.8, 0.45, -0.35), vec2(0.07, 0.1)), res);
+    res = opU(res, sdCylX(pos - vec3(-0.5, 0.21, 0), vec2(0.2, 0.55))); # wheels
+    res = opU(res, sdCylX(pos - vec3(0.45, 0.21, 0), vec2(0.2, 0.55)));
+    res = opS(sdBox(pos - vec3(0.2, 0.63, 0.0), vec3(0.65, 0.11, 0.35)), res); # interior
+    res = opS(sdBox(pos - vec3(-0.8, 0.41, 0.0), vec3(0.2, 0.02, 0.22)), res); # front vent
+    res = opS(sdBox(pos - vec3(-0.8, 0.37, 0.0), vec3(0.2, 0.02, 0.24)), res);
+    res = opS(sdBox(pos - vec3(-0.8, 0.33, 0.0), vec3(0.2, 0.02, 0.24)), res);
+    res = opS(sdBox(pos - vec3(-0.8, 0.29, 0.0), vec3(0.2, 0.02, 0.22)), res);
+    res = opU(res, sdBox(pos - vec3(-0.26, 0.57, 0.5), vec3(0.02, 0.05, 0.07))); # mirrors
+    res = opU(res, sdBox(pos - vec3(-0.26, 0.57, -0.5), vec3(0.02, 0.05, 0.07)));
+
+    return res
+
+class Car:
+    def __init__(self, center):
+        self.c = center
+
+    def intersect(self, O, D):
+        for i in range(10000):
+            if carMap(O + D * (i * 0.0001)) >= 0.0:
+                return i * 0.0001
+
 
 class Portal:
     def __init__(self, center, r, diffuse, offset, mirror = 0.5):
