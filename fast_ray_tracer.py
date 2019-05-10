@@ -15,17 +15,17 @@ class vec2():
     def __init__(self, x, y):
         (self.x, self.y) = (x, y)
     def __mul__(self, other):
-        return vec3(self.x * other, self.y * other)
+        return vec2(self.x * other, self.y * other)
     def __add__(self, other):
-        return vec3(self.x + other.x, self.y + other.y)
+        return vec2(self.x + other.x, self.y + other.y)
     def __sub__(self, other):
-        return vec3(self.x - other.x, self.y - other.y)
+        return vec2(self.x - other.x, self.y - other.y)
     def dot(self, other):
         return (self.x * other.x) + (self.y * other.y)
     def __abs__(self):
         return self.dot(self)
     def max(self, num):
-        return vec3(max(self.x, num), max(self.y, num))
+        return vec2(max(self.x, num), max(self.y, num))
     def norm(self):
         mag = np.sqrt(abs(self))
         return self * (1.0 / np.where(mag == 0, 1, mag))
@@ -139,22 +139,22 @@ class Sphere:
         return color
 
 def sdBox(p, b):
-    d = abs(p) - b;
-    return min(max(d.x, max(d.y, d.z)), 0.0) + d.max(0.0).norm()
+    d = vec3(abs(p) - b.x, abs(p) - b.y, abs(p) - b.z)
+    return min(max(d.x, max(d.y, d.z)), 0.0) + np.sqrt(abs(d.max(0.0)))
 
 def sdCylH(p, h):
-    intermed = abs(vec2(vec2(p.y, p.z).norm(), p.x))
+    intermed = abs(vec2(np.sqrt(abs(vec2(p.y, p.z))), p.x))
     d = vec2(intermed - h.x, intermed - h.y)
-    return min(max(d.x, d.y), 0.0) + d.max(0.0).norm()
+    return min(max(d.x, d.y), 0.0) + np.sqrt(abs(d.max(0.0)))
 
 def sdCylX(p, h):
-    intermed = abs(vec2(vec2(p.x, p.y).norm(), p.z))
+    intermed = abs(vec2(np.sqrt(abs(vec2(p.x, p.y))), p.z))
     d = vec2(intermed - h.x, intermed - h.y)
-    return min(max(d.x, d.y), 0.0) + d.max(0.0).norm()
+    return min(max(d.x, d.y), 0.0) + np.sqrt(abs(d.max(0.0)))
 
 def sdRoundBox(p, b, r):
     d = vec3(abs(p) - b.x, abs(p) - b.y, abs(p) - b.z)
-    return d.max(0.0).norm() - r + min(max(d.x, max(d.y, d.z)), 0.0)
+    return np.sqrt(abs(d.max(0.0))) - r + min(max(d.x, max(d.y, d.z)), 0.0)
 
 def opU(d1, d2):
     return min(d1, d2)
@@ -189,9 +189,19 @@ class Car:
         self.c = center
 
     def intersect(self, O, D):
-        for i in range(10000):
-            if carMap(O + D * (i * 0.0001)) >= 0.0:
-                return i * 0.0001
+        print(D.x)
+        intersections = np.zeros(len(D.x))
+        for row in range(D.x.shape[0]):
+            d = vec3(D.x[row], D.y[row], D.z[row])
+            for i in range(10000):
+                if carMap(O + d * (i * 0.0001)) >= 0.0:
+                    intersections[row] = i * 0.0001
+                    break;
+        return intersections
+
+    def light(self, O, D, d, scene, bounce):
+        color = rgb(0.5, 0.05, 0.05)
+        return color
 
 
 class Portal:
@@ -265,6 +275,7 @@ class CheckeredSphere(Sphere):
 
 scene = [
     Portal(vec3(.75, .1, 1.), .8, rgb(0, 0, 1), offset=vec3(-4, 0.1, -2)),
+    #Car(vec3(-0.75, .1, 2.25)),
     Sphere(vec3(-.75, .1, 2.25), .6, rgb(.5, .223, .5)),
     Sphere(vec3(-2.75, .1, 3.5), .6, rgb(1., .572, .184)),
     CheckeredSphere(vec3(0,-99999.5, 0), 99999, rgb(.75, .75, .75), 0.25),
